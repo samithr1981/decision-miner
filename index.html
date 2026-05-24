@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Decision Miner — RuPay CC</title>
+<title>Decision Miner — Interactive CART</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,sans-serif;background:#f0f4f8;color:#1e293b;height:100vh;display:flex;flex-direction:column;overflow:hidden;font-size:13px}
@@ -180,7 +180,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
   <div class="ph">Data</div>
   <div class="sc">
     <div class="rg">
-      <div class="rb on" onclick="loadSample(this)">RuPay CC</div>
+      <div class="rb on" onclick="loadSample(this)">Sample Data</div>
       <div class="rb" onclick="document.getElementById('csvf').click()">CSV</div>
     </div>
     <input type="file" id="csvf" accept=".csv" style="display:none" onchange="loadCSV(event)">
@@ -327,9 +327,9 @@ const rng=(s=>{let x=s;return()=>{x=(x*1664525+1013904223)&0xffffffff;return(x>>
 const bm=()=>{const u=rng()+1e-10,v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)};
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
-const FEATS=['days_since_last_txn','txn_count_3m','avg_ticket_size','credit_utilization_pct','payment_ratio','merchant_category_count','upi_cc_txn_flag','inactive_months_count','declined_txn_count_3m','emi_count_3m'];
-const SHORT={days_since_last_txn:'days_since_txn',txn_count_3m:'txn_3m',avg_ticket_size:'avg_ticket',credit_utilization_pct:'util_pct',payment_ratio:'pay_ratio',merchant_category_count:'merch_cats',upi_cc_txn_flag:'upi_flag',inactive_months_count:'inactive_mo',declined_txn_count_3m:'declined_3m',emi_count_3m:'emi_3m'};
-const RNG={days_since_last_txn:[1,365,30],txn_count_3m:[0,30,5],avg_ticket_size:[100,50000,2000],credit_utilization_pct:[0,100,30],payment_ratio:[0,1,0.7],merchant_category_count:[0,15,4],upi_cc_txn_flag:[0,1,0],inactive_months_count:[0,12,1],declined_txn_count_3m:[0,10,0],emi_count_3m:[0,10,1]};
+const FEATS=['recency_days','frequency_3m','avg_value','utilization_pct','payment_ratio','category_count','digital_flag','inactive_months','declined_count','installment_count'];
+const SHORT={recency_days:'recency_days',frequency_3m:'frequency_3m',avg_value:'avg_value',utilization_pct:'util_pct',payment_ratio:'pay_ratio',category_count:'cat_count',digital_flag:'digital_flag',inactive_months:'inactive_mo',declined_count:'declined',installment_count:'installments'};
+const RNG={recency_days:[1,365,30],frequency_3m:[0,30,5],avg_value:[100,50000,2000],utilization_pct:[0,100,30],payment_ratio:[0,1,0.7],category_count:[0,15,4],digital_flag:[0,1,0],inactive_months:[0,12,1],declined_count:[0,10,0],installment_count:[0,10,1]};
 
 function genData(){
   const rows=[];
@@ -345,7 +345,7 @@ function genData(){
     const dc=clamp(Math.floor(rng()*3),0,10);
     const em=clamp(Math.floor(rng()*5),0,10);
     const churn=((d>90)||(t3<2&&ut<5)||(im>=4&&pr<.3)||(rng()<.04))&&!(rng()<.05)?1:0;
-    rows.push({days_since_last_txn:d,txn_count_3m:t3,avg_ticket_size:tkt,credit_utilization_pct:ut,payment_ratio:pr,merchant_category_count:mc,upi_cc_txn_flag:up,inactive_months_count:im,declined_txn_count_3m:dc,emi_count_3m:em,churn});
+    rows.push({recency_days:d,frequency_3m:t3,avg_value:tkt,utilization_pct:ut,payment_ratio:pr,category_count:mc,digital_flag:up,inactive_months:im,declined_count:dc,installment_count:em,churn});
   }
   return rows;
 }
@@ -663,7 +663,7 @@ function selectNode(id){
   const type=isLeaf?(node.prediction===0?'LEAF — ACTIVE':'LEAF — CHURN'):(node.manual?'SPLIT (manual ✎)':'SPLIT (auto CART)');
   document.getElementById('rp-type').textContent=type;
   document.getElementById('rp-type').style.color=isLeaf?(node.prediction===0?'#34d399':'#f87171'):(node.manual?'#a78bfa':'#38bdf8');
-  document.getElementById('rp-stats').textContent=`n=${node.samples} · depth ${node.depth} · churn ${(node.n1/node.samples*100).toFixed(0)}% · imp ${node.impurity.toFixed(3)}`;
+  document.getElementById('rp-stats').textContent=`n=${node.samples} · depth ${node.depth} · positive ${(node.n1/node.samples*100).toFixed(0)}% · imp ${node.impurity.toFixed(3)}`;
 
   // Variable ranking table
   const bestLW=RANKED[0]?.lw||0;
@@ -829,9 +829,9 @@ function updPrev(thresh){
   vals.forEach((v,i)=>v<=thresh?lY.push(labels[i]):rY.push(labels[i]));
   const n=vals.length;
   document.getElementById('pv-l').textContent=lY.length;
-  document.getElementById('ps-l').textContent=lY.length?`churn ${(lY.filter(v=>v===1).length/lY.length*100).toFixed(0)}%`:'—';
+  document.getElementById('ps-l').textContent=lY.length?`pos ${(lY.filter(v=>v===1).length/lY.length*100).toFixed(0)}%`:'—';
   document.getElementById('pv-r').textContent=rY.length;
-  document.getElementById('ps-r').textContent=rY.length?`churn ${(rY.filter(v=>v===1).length/rY.length*100).toFixed(0)}%`:'—';
+  document.getElementById('ps-r').textContent=rY.length?`pos ${(rY.filter(v=>v===1).length/rY.length*100).toFixed(0)}%`:'—';
   const g=gain(labels,lY,rY);
   document.getElementById('pv-g').textContent=g.toFixed(4);
   document.getElementById('ps-lw').textContent=`−logp: ${logw(g).toFixed(3)}`;
@@ -881,7 +881,7 @@ function relayout(){
 function resetAll(){
   if(!T)return;
   nid=0;SEL=null;PATH=new Set();showIdlePanel();
-  const feats=[...SELFEAT];const labels=DATA.map(d=>d.churn);
+  const feats=[...SELFEAT];const labels=DATA.map(d=>d[TARGET]??d.churn);
   const maxD=+document.querySelector('#sb input[type=range]').value;
   const minS=+document.querySelectorAll('#sb input[type=range]')[1].value;
   T=buildSub(DATA,labels,feats,0,maxD,minS);
@@ -964,9 +964,9 @@ function runPred(){
   const path=[];const pred=predRow(T,row,path);
   PATH=new Set(path.map(n=>n.id));draw();goTab('tree',document.getElementById('t-tree'));
   const prc=document.getElementById('prc');
-  prc.textContent=pred===0?'✓  ACTIVE':'⚠  CHURN RISK';prc.style.color=pred===0?'#34d399':'#f87171';
+  prc.textContent=pred===0?'✓  NEGATIVE':'⚠  POSITIVE';prc.style.color=pred===0?'#34d399':'#f87171';
   const lines=path.slice(0,-1).map((n,i)=>`${'  '.repeat(i)}→ ${SHORT[n.feat]||n.feat} ${n.left===path[i+1]?'≤':'>'} ${fmt(n.thresh)}`);
-  document.getElementById('prpath').innerHTML=`<span style="font-size:8px;color:#374151;letter-spacing:1px;text-transform:uppercase">Decision path:</span><br>`+lines.join('<br>')+`<br>${'  '.repeat(lines.length)}→ ${pred===0?'Active':'Churn'}`;
+  document.getElementById('prpath').innerHTML=`<span style="font-size:8px;color:#374151;letter-spacing:1px;text-transform:uppercase">Decision path:</span><br>`+lines.join('<br>')+`<br>${'  '.repeat(lines.length)}→ ${pred===0?'Negative':'Positive'}`;
   document.getElementById('pres').classList.add('vis');
 }
 
@@ -1000,7 +1000,7 @@ function loadCSV(e){
       const lines=ev.target.result.split('\n').filter(l=>l.trim());
       const hdrs=lines[0].split(',').map(h=>h.trim());
       DATA=lines.slice(1).map(line=>{const vs=line.split(',');const r={};hdrs.forEach((h,i)=>r[h]=parseFloat(vs[i])||0);return r;}).filter(r=>Object.keys(r).length>1);
-      hdrs.filter(h=>h!=='churn').forEach(h=>{if(!SHORT[h])SHORT[h]=h;if(!RNG[h])RNG[h]=[0,Math.max(...DATA.map(d=>d[h]||0)),0];});
+      hdrs.filter(h=>h!==TARGET).forEach(h=>{if(!SHORT[h])SHORT[h]=h;if(!RNG[h])RNG[h]=[0,Math.max(...DATA.map(d=>d[h]||0)),0];});
       const tgtSel2=document.getElementById('tgt-sel');
       tgtSel2.innerHTML=hdrs.map(h=>`<option value="${h}"${h==='churn'?' selected':''}>${h}</option>`).join('');
       TARGET=hdrs.includes('churn')?'churn':hdrs[hdrs.length-1];
@@ -1034,7 +1034,7 @@ function openCtxMenu(cx,cy){
   const hdr=document.getElementById('ctxhdr');
   const body=document.getElementById('ctxbody');
 
-  hdr.textContent=(node.isLeaf?'Leaf':'Split')+' · n='+node.samples+' · churn '+(node.n1/node.samples*100).toFixed(0)+'%';
+  hdr.textContent=(node.isLeaf?'Leaf':'Split')+' · n='+node.samples+' · positive '+(node.n1/node.samples*100).toFixed(0)+'%';
 
   const item=(label,color,fn)=>{
     const d=document.createElement('div');
@@ -1099,10 +1099,10 @@ document.addEventListener('mousedown',e=>{
 // ═══════════════════════════════════════════════════════
 DATA=genData();
 const cr=(DATA.filter(d=>d.churn===1).length/DATA.length*100).toFixed(0);
-document.getElementById('dinfo').textContent=`${DATA.length} rows · churn ${cr}%`;
+document.getElementById('dinfo').textContent=`${DATA.length} rows · target rate ${cr}%`;
 document.getElementById('bd').textContent=DATA.length+' ROWS';
 // Populate target selector
-const allCols=[...FEATS,'churn'];
+const allCols=[...FEATS,'churn']; // 'churn' kept as default target key
 const tgtSel=document.getElementById('tgt-sel');
 tgtSel.innerHTML=allCols.map(c=>`<option value="${c}"${c==='churn'?' selected':''}>${c}</option>`).join('');
 setTarget('churn');
