@@ -1,8 +1,8 @@
 # Decision Miner
 
-**Interactive CART Decision Tree — SAS EM equivalent for RuPay CC Analytics**
+**Interactive CART Decision Tree**
 
-Built for NPCI RuPay Credit Card churn and customer persona analytics.
+Built Credit Card churn and customer persona analytics.
 
 ## Features
 
